@@ -52,8 +52,73 @@ Por fim, o grupo entende que a tecnologia sozinha não fecha o problema: é indi
 
 ## 2. Exemplos e Casos
 
-Exemplo de view `clientes_visiveis` no PostgreSQL e exemplo de role/permissão.
-Um caso real: sistema de vendas, clínica ou biblioteca.
+### 2.1 View `clientes_visiveis` (limita colunas e linhas)
+
+A view abaixo expõe apenas o que um analista precisa e **omite dados sensíveis** (CPF, e-mail, endereço completo, telefone), além de restringir as linhas a clientes ativos:
+
+```sql
+CREATE VIEW clientes_visiveis AS
+SELECT
+    id,
+    nome,
+    cidade,
+    estado,
+    segmento
+FROM clientes
+WHERE ativo = TRUE;   -- limita LINHAS (apenas clientes ativos)
+-- CPF, e-mail, endereço e telefone ficam de fora -> limita COLUNAS
+```
+
+Quando a identificação parcial for realmente necessária (ex.: conferência), usa-se **mascaramento** em vez de expor o dado bruto:
+
+```sql
+CREATE VIEW clientes_mascarados AS
+SELECT
+    id,
+    nome,
+    '***.***.***-' || RIGHT(cpf, 2) AS cpf_mascarado,  -- revela só os 2 últimos dígitos
+    cidade,
+    estado
+FROM clientes
+WHERE ativo = TRUE;
+```
+
+### 2.2 Exemplo de role e permissão
+
+Aqui aplicamos o menor privilégio: cria-se uma role de grupo por perfil, concede-se acesso **somente à view** (nunca à tabela base) e vincula-se o usuário individual a essa role.
+
+```sql
+-- 1. Role de grupo para o perfil "analista que usa IA" (sem login próprio)
+CREATE ROLE analista_ia NOLOGIN;
+
+-- 2. Somente leitura, e apenas na view — a tabela real permanece inacessível
+GRANT SELECT ON clientes_visiveis TO analista_ia;
+REVOKE ALL ON clientes FROM analista_ia;
+
+-- 3. Controle de execução: consultas pesadas são abortadas após 30s
+ALTER ROLE analista_ia SET statement_timeout = '30s';
+
+-- 4. Usuário individual, vinculado à role de grupo
+CREATE ROLE maria LOGIN PASSWORD 'senha_forte';
+GRANT analista_ia TO maria;
+```
+
+Assim, se a IA gerar `SELECT cpf FROM clientes` para a usuária Maria, o comando **falha por falta de permissão**; e uma consulta que varra a tabela por tempo demais é **interrompida** pelo `statement_timeout`.
+
+### 2.3 Caso real: sistema de vendas
+
+Considere a empresa do contexto, que usa PostgreSQL para **clientes, vendas e operações**. A equipe de marketing começou a usar um gerador de SQL por IA para montar relatórios sozinha, sem passar por um programador.
+
+**Antes dos controles:** um analista pede à IA "lista completa de clientes com dados de contato". A IA gera `SELECT * FROM clientes`, retornando **CPF, e-mail e endereço** de milhares de pessoas — violação direta da LGPD. Em outro momento, um `JOIN` mal formulado pela IA varre milhões de linhas e **trava o banco** em horário de pico.
+
+**Depois da atuação do DBA:**
+
+- Os analistas recebem a role `analista_ia`, com `SELECT` apenas nas views `clientes_visiveis` e `vendas_resumo`;
+- O `statement_timeout` impede que consultas pesadas derrubem a performance;
+- `log_statement` e a extensão `pg_stat_statements` registram e revelam as consultas mais lentas/frequentes, permitindo ao DBA detectar abuso;
+- Dados pessoais sensíveis simplesmente **não estão nas views**, então nem a consulta da IA nem um eventual prompt enviado a uma ferramenta externa expõem CPF ou endereço.
+
+**Resultado:** os analistas continuam autônomos e produtivos com a IA, mas dentro de um "cercado" seguro definido pelo DBA — conciliando produtividade, segurança, performance e conformidade.
 
 ## 3. Referências
 
