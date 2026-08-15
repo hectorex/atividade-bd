@@ -122,8 +122,15 @@ Considere a empresa do contexto, que usa PostgreSQL para **clientes, vendas e op
 
 ## 3. Referências
 
-Fontes consultadas (livros, artigos, documentação oficial do PostgreSQL,
-materiais do curso).
+- SILBERSCHATZ, A.; KORTH, H. F.; SUDARSHAN, S. **Sistema de Banco de Dados**. 6. ed. Rio de Janeiro: Elsevier, 2012. (origem da definição de Administrador de Banco de Dados e do controle centralizado dos dados). 
+
+- ELMASRI, R.; NAVATHE, S. B. **Sistemas de Banco de Dados**. 7. ed. São Paulo: Pearson, 2018.
+
+- POSTGRESQL GLOBAL DEVELOPMENT GROUP. **PostgreSQL Documentation** — seções *CREATE ROLE*, *GRANT*, *CREATE VIEW* e *Row Security Policies*. Disponível em: https://www.postgresql.org/docs/. Acesso em: ago. 2026.
+
+- BRASIL. **Lei nº 13.709, de 14 de agosto de 2018** — Lei Geral de Proteção de Dados Pessoais (LGPD), com destaque ao Art. 5º, II (dados pessoais sensíveis).
+
+- CAFEGEEK. **Perfis de Usuários de Banco de Dados**. Jan. 2026. 
 
 ## 4. Conclusões
 
