@@ -48,8 +48,55 @@ Os usuários de banco de dados são divididos em quatro perfis principais:
   * *Limitações:* Historicamente não dominam a linguagem SQL nem as boas práticas de banco de dados.
 
 ### 1.3 Riscos do uso de IA por usuários especialistas
-Consulta incorreta, exposição de dados sensíveis, degradação de performance,
-vazamento por prompts — impactos na segurança e na integridade.
+Usar IA generativa pode ajudar bastante um profissional no dia a dia, mas isso não elimina a necessidade de entender banco de dados. A IA pode gerar consultas, explicar erros e até sugerir soluções, porém ela também pode interpretar alguma coisa de forma errada. Se a pessoa não tiver conhecimento suficiente para perceber isso, pode acabar executando um comando sem entender direito o que ele vai fazer. A partir disso, o grupo identificou cinco riscos principais que podem afetar a segurança e os dados de uma empresa.
+
+**1. Consulta incorreta por erro de lógica.**
+Quando um comando está com erro de sintaxe, normalmente o próprio banco acusa o erro e não deixa executar. O problema maior é quando o comando está correto, mas a lógica está errada. Nesse caso, ele pode rodar normalmente e apresentar um resultado que parece certo, mesmo não sendo.
+
+Um exemplo seria um `JOIN` feito usando a coluna errada. Isso pode duplicar algumas linhas e fazer com que uma venda de R$ 600 apareça como R$ 1.200 em um relatório. Os dados originais continuam corretos dentro do banco, mas o relatório apresenta uma informação errada e alguém pode tomar uma decisão com base nela.
+
+O problema pode ser ainda maior quando envolve alteração ou exclusão de dados. Um `UPDATE` ou `DELETE` sem a cláusula `WHERE`, por exemplo, pode acabar afetando todas as linhas da tabela quando a intenção era modificar apenas algumas. Dependendo do caso, pode ser necessário recuperar os dados usando um backup. Por isso, esse tipo de erro afeta principalmente a integridade dos dados e pode ser difícil de perceber logo de início.
+
+**2. Exposição de dados sensíveis.**
+Outro risco acontece quando a IA gera consultas muito amplas. Um `SELECT *`, por exemplo, pode retornar todas as colunas de uma tabela, incluindo informações como CPF, endereço e telefone, mesmo que o funcionário não precise desses dados para realizar o trabalho dele.
+
+Isso entra em conflito com o princípio da necessidade previsto na LGPD, segundo o qual cada pessoa deve ter acesso somente aos dados necessários para cumprir sua função. O fato de o funcionário trabalhar na empresa ou não ter intenção de causar algum problema não significa que ele deveria ter acesso a qualquer informação.
+
+Nesse caso, o principal impacto é na confidencialidade. Depois que um dado aparece na tela, é colocado em uma planilha ou enviado para outra pessoa, simplesmente retirar a permissão depois não resolve completamente o problema, porque a informação já foi visualizada ou copiada.
+
+Além da questão de segurança, também existe a parte jurídica. A LGPD prevê sanções que podem chegar a 2% do faturamento da empresa no Brasil, limitadas a R$ 50 milhões por infração, dependendo do caso. Também podem existir outras consequências jurídicas além das medidas aplicadas pela ANPD.
+
+**3. Degradação de performance.**
+Em uma empresa, várias partes do sistema podem estar usando o mesmo banco de dados ao mesmo tempo. O caixa da loja pode estar registrando vendas, o estoque sendo atualizado, o site recebendo acessos e algum funcionário gerando relatórios.
+
+A IA pode criar uma consulta que funciona normalmente, mas que não foi pensada para aquele banco específico. Ela pode não conhecer quais colunas possuem índices, o tamanho real das tabelas ou o custo de cruzar uma quantidade muito grande de registros.
+
+Com isso, uma consulta que deveria ser simples pode acabar lendo uma tabela inteira e consumindo muito processamento, memória e acesso ao disco. Se isso acontecer enquanto outras pessoas estão usando o sistema, as demais operações podem ficar mais lentas ou até parar de responder por algum tempo.
+
+Nesse caso, não necessariamente existe vazamento ou alteração dos dados. O problema está na disponibilidade do sistema. Se isso acontecer em um horário de pico, por exemplo, a empresa pode até perder vendas porque o sistema ficou lento. Uma das medidas que podem ajudar é configurar um `statement_timeout`, fazendo com que consultas que ultrapassem determinado tempo sejam canceladas automaticamente.
+
+**4. Vazamento de informações por prompts.**
+Esse risco acontece fora do próprio banco de dados. Para conseguir uma resposta mais precisa da IA, uma pessoa pode acabar copiando e colando informações reais no prompt, como parte de um relatório, registros de clientes, resultados de consultas ou até códigos internos da empresa.
+
+A partir desse momento, aquela informação saiu do ambiente da empresa e foi enviada para um serviço externo. Dependendo da ferramenta utilizada, podem existir políticas diferentes sobre armazenamento, processamento e localização desses dados.
+
+Um caso conhecido aconteceu com a Samsung em 2023, quando funcionários utilizaram ferramentas de IA generativa e acabaram inserindo informações internas, incluindo código e conteúdo relacionado ao trabalho. Depois desses episódios, a empresa restringiu o uso dessas ferramentas em seus dispositivos e sistemas internos.
+
+Esse risco é complicado porque não acontece diretamente dentro do banco. Se alguém copiar dados e colocar em um prompt, as permissões configuradas no PostgreSQL não conseguem impedir isso. Os logs do banco também não vão mostrar que aquela informação foi enviada para uma IA. Se houver dados pessoais envolvidos, ainda pode configurar tratamento indevido de dados pessoais segundo a LGPD.
+
+**5. Escalada de privilégios.**
+Também pode acontecer de um usuário tentar executar alguma operação e receber uma mensagem dizendo que não possui permissão. Sem saber exatamente o motivo daquela restrição, ele pode copiar o erro e perguntar para uma IA como resolver.
+
+A IA pode interpretar aquilo apenas como um problema técnico e sugerir comandos como `GRANT ALL` ou mudanças nas roles do banco. O problema é que ela não conhece necessariamente as regras de segurança daquela empresa e não sabe se aquela permissão foi limitada de propósito pelo DBA.
+
+Se o usuário entende bem da área em que trabalha, mas não possui conhecimento suficiente sobre administração de banco de dados, pode executar a sugestão acreditando que está apenas corrigindo um erro. Na prática, ele pode estar removendo uma proteção importante.
+
+Por isso, alterações de permissões devem ficar restritas a usuários responsáveis pela administração do banco. Dessa forma, mesmo que uma IA sugira aumentar privilégios, um usuário comum não terá autorização para executar esse tipo de mudança.
+
+Esses exemplos mostram que o uso de IA pode trazer riscos diferentes para um banco de dados. Um erro de lógica pode comprometer a **integridade** das informações, o acesso indevido a dados pessoais pode afetar a **confidencialidade**, e consultas muito pesadas podem prejudicar a **disponibilidade** do sistema.
+
+Por esse motivo, não existe uma única configuração capaz de resolver todos esses problemas. É necessário utilizar diferentes medidas de segurança em conjunto, criando várias camadas de proteção. É justamente essa ideia de proteção em camadas que será abordada na próxima seção.
+
 
 ### 1.4 Distribuição segura de dados
 Menor privilégio, views, roles customizadas, controle de execução, auditoria,
