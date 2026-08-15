@@ -3,7 +3,7 @@
 **Alunos:** Celso Hector, Daniel Lins, Nicolas Araujo <br>
 **Turma:** Banco de Dados 2026 - G2 <br>
 **Data:** 10/08/2026 <br>
-**Repositório Git:** https://github.com/usuario/atividade-bd
+**Repositório Git:** https://github.com/hectorex/atividade-bd
 
 ## Resumo Executivo
 
