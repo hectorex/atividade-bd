@@ -7,17 +7,45 @@
 
 ## Resumo Executivo
 
-Breve descrição do tema e da posição adotada pelo grupo.
+Este trabalho analisa os impactos e os riscos da utilização de ferramentas de Inteligência Artificial generativa por usuários especialistas no acesso direto a um SGBD PostgreSQL. Com o uso de assistentes virtuais para a criação de consultas SQL complexas sem a mediação da equipe de desenvolvimento, surgem ameaças reais à organização, como a exposição de dados sensíveis, a degradação da performance por queries ineficientes, vazamentos de informações via prompts e erros de lógica nas transações.
+
+Diante desse cenário, defendemos que a distribuição segura dos dados depende centralmente do fortalecimento da governança do DBA. A abordagem proposta baseia-se na aplicação rigorosa do princípio do menor privilégio, na restrição do acesso por meio de views e roles customizadas, no controle de tempo de execução e na auditoria constante de logs. Conclui-se que a IA deve ser adotada como uma ferramenta de produtividade, desde que o banco de dados imponha as travas técnicas necessárias para garantir a segurança, a integridade e a conformidade de todo o ambiente.
 
 ## 1. Desenvolvimento Teórico
 
 ### 1.1 O que é o DBA e quais suas funções?
-Definição de DBA e suas funções: definição do esquema, estrutura de dados e
-acesso, autorização de acesso, regras de integridade.
+O **DBA** é o profissional responsável por gerenciar, manter, otimizar e garantir a segurança e integridade de um SGBD. No contexto em que usuários especialistas utilizam Inteligência Artificial generativa para criar consultas SQL, as funções clássicas do DBA tornam-se ainda mais cruciais:
+
+* **Definição do Esquema:** O DBA define as tabelas, atributos, tipos de dados e relacionamentos.
+  * *Relação com a IA:* Como ferramentas de IA geram código SQL com base nos metadados do banco, um esquema bem definido e documentado evita que a IA cometa erros de interpretação de regra de negócio ao criar consultas complexas.
+
+* **Estrutura de Dados e Métodos de Acesso:** O DBA decide como os dados são armazenados fisicamente e cria estruturas como índices.
+  * *Relação com a IA:* Consultas geradas por IA frequentemente contêm *JOINs* ineficientes ou varreduras completas em tabelas. O DBA precisa criar índices adequados para mitigar a degradação da performance do PostgreSQL trazida por essas consultas automáticas.
+
+* **Autorização de Acesso:** O DBA controla quem pode acessar o banco e o que cada usuário ou aplicação pode executar.
+  * *Relação com a IA:* Usuários especialistas usando assistentes de IA não devem ter acesso total. O DBA deve aplicar o Princípio do Menor Privilégio para impedir que um prompt incorreto ou malicioso exponha dados sensíveis ou modifique tabelas críticas.
+
+* **Regras de Integridade:** O DBA estabelece limites para garantir que os dados permaneçam corretos e consistentes.
+  * *Relação com a IA:* A IA pode sugerir comandos de alteração (`UPDATE`/`DELETE`) ou inserção incorretos. As regras de integridade configuradas pelo DBA atuam como uma camada final de defesa no PostgreSQL para rejeitar transações inválidas geradas por erros de lógica da IA.
 
 ### 1.2 Perfis de usuários de banco de dados
-Programadores de aplicações, usuários sofisticados, usuários especialistas,
-usuários navegantes — vantagens e limitações de cada perfil.
+Os usuários de banco de dados são divididos em quatro perfis principais:
+
+* **Programadores de aplicações:** São os desenvolvedores que constroem os sistemas da empresa. 
+  * *Vantagens:* Criam telas e rotinas automatizadas, tratando os dados com segurança no código da aplicação antes de chegar ao banco.
+  * *Limitações:* Qualquer mudança na regra de negócio ou novo relatório exige tempo de desenvolvimento e alteração no código do sistema.
+
+* **Usuários navegantes:** São os funcionários que usam os sistemas prontos no dia a dia.
+  * *Vantagens:* Não precisam saber nada de SQL ou TI. Interagem com telas simples e intuitivas, com risco quase zero de danificar a estrutura do banco.
+  * *Limitações:* Ficam totalmente presos às funções pré-programadas do sistema. Se precisarem de um dado diferente, dependem da TI.
+
+* **Usuários sofisticados:** São analistas, cientistas de dados ou gestores que possuem conhecimento intermediário/avançado de SQL e ferramentas de análise.
+  * *Vantagens:* Conseguem extrair dados complexos e montar relatórios sem depender da equipe de desenvolvimento.
+  * *Limitações:* Podem montar consultas ineficientes se não conhecerem os índices e a estrutura física do banco.
+
+* **Usuários especialistas:** São profissionais focados estritamente na regra de negócio. 
+  * *Vantagens:* Têm domínio profundo dos dados e dos problemas da empresa, sabendo exatamente qual resposta precisam obter.
+  * *Limitações:* Historicamente não dominam a linguagem SQL nem as boas práticas de banco de dados.
 
 ### 1.3 Riscos do uso de IA por usuários especialistas
 Consulta incorreta, exposição de dados sensíveis, degradação de performance,
@@ -133,6 +161,8 @@ Considere a empresa do contexto, que usa PostgreSQL para **clientes, vendas e op
 - BRASIL. **Lei nº 13.709, de 14 de agosto de 2018** — Lei Geral de Proteção de Dados Pessoais (LGPD), com destaque ao Art. 5º, I (dados pessoais, categoria que abrange CPF, e-mail e endereço) e ao Art. 5º, II (dados pessoais sensíveis).
 
 - CAFEGEEK. **Perfis de Usuários de Banco de Dados**. Jan. 2026.
+
+- [CafeGeek - Perfis de Usuários de BD](https://cafegeek.eti.br/curso/banco-de-dados/conceitos-fundamentais/usuarios-de-banco-de-dados/)
 
 ## 4. Conclusões
 
