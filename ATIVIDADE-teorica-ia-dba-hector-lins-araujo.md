@@ -1,8 +1,8 @@
 # Atividade Teórica: Usuários Especialistas, IA e Distribuição Segura de Dados
 
-**Aluno(s):** Nome1, Nome2, Nome3
-**Turma:** Banco de Dados 2026
-**Data:** ../../2026
+**Alunos:** Celso Hector, Daniel Lins, Nicolas Araujo <br>
+**Turma:** Banco de Dados 2026 - G2 <br>
+**Data:** 10/08/2026 <br>
 **Repositório Git:** https://github.com/usuario/atividade-bd
 
 ## Resumo Executivo
@@ -10,7 +10,7 @@
 Breve descrição do tema e da posição adotada pelo grupo.
 
 ## 1. Desenvolvimento Teórico
-"
+
 ### 1.1 O que é o DBA e quais suas funções?
 Definição de DBA e suas funções: definição do esquema, estrutura de dados e
 acesso, autorização de acesso, regras de integridade.
@@ -49,4 +49,4 @@ materiais do curso).
 
 Aprendizados, reflexões e principais pontos observados pelo grupo.
 
-## Link do Repositório Git
+## [Link do Repositório Git](https://github.com/hectorex/atividade-bd/blob/main/ATIVIDADE-teorica-ia-dba-hector-lins-araujo.md)
