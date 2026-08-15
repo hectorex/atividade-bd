@@ -40,11 +40,11 @@ O raciocínio central é o seguinte: no cenário tradicional, a segurança podia
 A partir dessa premissa, o grupo defende a combinação das seguintes camadas, em ordem de importância:
 
 1. **Menor privilégio como fundação.** Cada usuário nasce sem acesso e recebe apenas o mínimo necessário. A IA pode gerar `SELECT * FROM clientes`, mas se a role não tem permissão na tabela base, a consulta simplesmente falha.
-2. **Views como interface obrigatória.** Os usuários e a IA nunca tocam nas tabelas reais; só enxergam views que já removem colunas sensíveis (CPF, endereço) e filtram linhas. Assim, mesmo uma consulta "perfeita" da IA não consegue devolver o que não está na view.
+2. **Views como interface obrigatória.** Os usuários e a IA nunca tocam nas tabelas reais; só enxergam views que já removem colunas com dados pessoais (CPF, endereço) e filtram linhas. Assim, mesmo uma consulta "perfeita" da IA não consegue devolver o que não está na view. Para filtro de **linhas** mais robusto — por exemplo, cada analista só enxergar clientes da sua própria região — o PostgreSQL ainda oferece o **Row Level Security (RLS)** como complemento às views.
 3. **Roles customizadas por perfil**, agrupando permissões por função (analista, gestor, auditor) em vez de configurar usuário por usuário — o que reduz o erro humano do próprio DBA.
 4. **Controle de recursos** (`statement_timeout`, limite de conexões) para conter consultas pesadas geradas por IA que degradariam a performance.
 5. **Auditoria contínua** (logs e `pg_stat_statements`), porque nenhuma barreira é perfeita: é preciso rastrear quem executou o quê e detectar abuso.
-6. **Conformidade com a LGPD embutida no desenho**, e não como remendo: dado sensível que o analista não precisa ver simplesmente não deve chegar até ele.
+6. **Conformidade com a LGPD embutida no desenho**, e não como remendo: dado pessoal que o analista não precisa ver simplesmente não deve chegar até ele.
 
 Há ainda um ponto específico da IA que reforça a escolha por views: o **vazamento por prompt**. Quando o usuário cola dados reais numa ferramenta de IA externa para "pedir ajuda", esses dados saem da organização. Se o usuário só trabalha sobre views já mascaradas, o que ele eventualmente enviar para a IA externa **já não contém dado pessoal identificável**, reduzindo o risco na origem.
 
@@ -54,7 +54,7 @@ Por fim, o grupo entende que a tecnologia sozinha não fecha o problema: é indi
 
 ### 2.1 View `clientes_visiveis` (limita colunas e linhas)
 
-A view abaixo expõe apenas o que um analista precisa e **omite dados sensíveis** (CPF, e-mail, endereço completo, telefone), além de restringir as linhas a clientes ativos:
+A view abaixo expõe apenas o que um analista precisa e **omite dados pessoais** (CPF, e-mail, endereço completo, telefone), além de restringir as linhas a clientes ativos:
 
 ```sql
 CREATE VIEW clientes_visiveis AS
@@ -82,6 +82,8 @@ SELECT
 FROM clientes
 WHERE ativo = TRUE;
 ```
+
+> **Por que a view funciona mesmo sem acesso à tabela base?** No PostgreSQL, uma view é executada com os privilégios do **dono da view** (mecanismo conhecido como *ownership chaining*), e não com os do usuário que a consulta. Por isso é possível liberar a view para o analista e, ao mesmo tempo, manter a tabela `clientes` totalmente inacessível para ele. Em views usadas como barreira de segurança, recomenda-se ainda declará-las com `WITH (security_barrier)`, para impedir que funções injetadas no `WHERE` "vazem" linhas que deveriam ter sido filtradas.
 
 ### 2.2 Exemplo de role e permissão
 
@@ -116,21 +118,21 @@ Considere a empresa do contexto, que usa PostgreSQL para **clientes, vendas e op
 - Os analistas recebem a role `analista_ia`, com `SELECT` apenas nas views `clientes_visiveis` e `vendas_resumo`;
 - O `statement_timeout` impede que consultas pesadas derrubem a performance;
 - `log_statement` e a extensão `pg_stat_statements` registram e revelam as consultas mais lentas/frequentes, permitindo ao DBA detectar abuso;
-- Dados pessoais sensíveis simplesmente **não estão nas views**, então nem a consulta da IA nem um eventual prompt enviado a uma ferramenta externa expõem CPF ou endereço.
+- Dados pessoais simplesmente **não estão nas views**, então nem a consulta da IA nem um eventual prompt enviado a uma ferramenta externa expõem CPF ou endereço.
 
 **Resultado:** os analistas continuam autônomos e produtivos com a IA, mas dentro de um "cercado" seguro definido pelo DBA — conciliando produtividade, segurança, performance e conformidade.
 
 ## 3. Referências
 
-- SILBERSCHATZ, A.; KORTH, H. F.; SUDARSHAN, S. **Sistema de Banco de Dados**. 6. ed. Rio de Janeiro: Elsevier, 2012. (origem da definição de Administrador de Banco de Dados e do controle centralizado dos dados). 
+- SILBERSCHATZ, A.; KORTH, H. F.; SUDARSHAN, S. **Sistema de Banco de Dados**. 6. ed. Rio de Janeiro: Elsevier, 2012. (origem da definição de Administrador de Banco de Dados e do controle centralizado dos dados).
 
 - ELMASRI, R.; NAVATHE, S. B. **Sistemas de Banco de Dados**. 7. ed. São Paulo: Pearson, 2018.
 
-- POSTGRESQL GLOBAL DEVELOPMENT GROUP. **PostgreSQL Documentation** — seções *CREATE ROLE*, *GRANT*, *CREATE VIEW* e *Row Security Policies*. Disponível em: https://www.postgresql.org/docs/. Acesso em: ago. 2026.
+- POSTGRESQL GLOBAL DEVELOPMENT GROUP. **PostgreSQL Documentation** — seções *CREATE ROLE*, *GRANT*, *CREATE VIEW* (incluindo `security_barrier`) e *Row Security Policies* (RLS). Disponível em: https://www.postgresql.org/docs/. Acesso em: ago. 2026.
 
-- BRASIL. **Lei nº 13.709, de 14 de agosto de 2018** — Lei Geral de Proteção de Dados Pessoais (LGPD), com destaque ao Art. 5º, II (dados pessoais sensíveis).
+- BRASIL. **Lei nº 13.709, de 14 de agosto de 2018** — Lei Geral de Proteção de Dados Pessoais (LGPD), com destaque ao Art. 5º, I (dados pessoais, categoria que abrange CPF, e-mail e endereço) e ao Art. 5º, II (dados pessoais sensíveis).
 
-- CAFEGEEK. **Perfis de Usuários de Banco de Dados**. Jan. 2026. 
+- CAFEGEEK. **Perfis de Usuários de Banco de Dados**. Jan. 2026.
 
 ## 4. Conclusões
 
@@ -138,7 +140,7 @@ O estudo mostrou que a chegada da IA generativa **muda de lugar o risco**, mas n
 
 O principal aprendizado do grupo é que **segurança de dados com IA é uma questão de arquitetura, não de confiança na ferramenta**. Não se deve esperar que a IA "gere consultas seguras"; deve-se garantir que, mesmo que ela gere uma consulta perigosa, o banco a impeça. Isso se alcança com camadas que se reforçam: menor privilégio, views que filtram colunas e linhas, roles por perfil, controle de execução e auditoria contínua.
 
-Refletimos também que a **LGPD deixa de ser um detalhe jurídico e vira requisito técnico**: se o dado sensível não precisa ser visto, ele não deve sequer chegar ao usuário — e, por consequência, não chega aos prompts enviados a ferramentas externas.
+Refletimos também que a **LGPD deixa de ser um detalhe jurídico e vira requisito técnico**: se o dado pessoal não precisa ser visto, ele não deve sequer chegar ao usuário — e, por consequência, não chega aos prompts enviados a ferramentas externas.
 
 Por fim, o ponto mais observado pelo grupo é o **papel insubstituível do DBA**. A IA acelera a geração de consultas, mas quem define o esquema, desenha as políticas de acesso, monitora consultas abusivas e orienta o uso responsável continua sendo um profissional humano. A conclusão se resume em uma frase: **a IA gera as consultas; o DBA governa os dados**.
 
