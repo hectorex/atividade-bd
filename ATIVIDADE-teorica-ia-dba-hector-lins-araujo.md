@@ -127,6 +127,12 @@ materiais do curso).
 
 ## 4. Conclusões
 
-Aprendizados, reflexões e principais pontos observados pelo grupo.
+O estudo mostrou que a chegada da IA generativa **muda de lugar o risco**, mas não cria uma ameaça sem solução. Ao permitir que usuários especialistas gerem SQL diretamente, a IA remove a camada de proteção que antes existia no código da aplicação — o que obriga a organização a **reforçar a segurança dentro do próprio banco de dados**.
+
+O principal aprendizado do grupo é que **segurança de dados com IA é uma questão de arquitetura, não de confiança na ferramenta**. Não se deve esperar que a IA "gere consultas seguras"; deve-se garantir que, mesmo que ela gere uma consulta perigosa, o banco a impeça. Isso se alcança com camadas que se reforçam: menor privilégio, views que filtram colunas e linhas, roles por perfil, controle de execução e auditoria contínua.
+
+Refletimos também que a **LGPD deixa de ser um detalhe jurídico e vira requisito técnico**: se o dado sensível não precisa ser visto, ele não deve sequer chegar ao usuário — e, por consequência, não chega aos prompts enviados a ferramentas externas.
+
+Por fim, o ponto mais observado pelo grupo é o **papel insubstituível do DBA**. A IA acelera a geração de consultas, mas quem define o esquema, desenha as políticas de acesso, monitora consultas abusivas e orienta o uso responsável continua sendo um profissional humano. A conclusão se resume em uma frase: **a IA gera as consultas; o DBA governa os dados**.
 
 ## [Link do Repositório Git](https://github.com/hectorex/atividade-bd/blob/main/ATIVIDADE-teorica-ia-dba-hector-lins-araujo.md)
