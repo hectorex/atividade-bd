@@ -99,8 +99,80 @@ Por esse motivo, não existe uma única configuração capaz de resolver todos e
 
 
 ### 1.4 Distribuição segura de dados
-Menor privilégio, views, roles customizadas, controle de execução, auditoria,
-conformidade (LGPD).
+### 1.4 Distribuição segura de dados
+
+Depois de entender os principais riscos do uso de IA com bancos de dados, o próximo passo é pensar em formas de diminuir esses problemas. O próprio banco oferece vários recursos de segurança que podem ser usados para isso. A ideia do grupo é trabalhar com essas medidas em conjunto, como diferentes camadas de proteção. Nenhuma delas resolve todos os problemas sozinha, mas uma pode proteger justamente onde a outra não consegue.
+
+Um ponto importante é que essa proteção deve estar dentro do próprio banco de dados, e não depender da IA. Em vez de confiar que a IA sempre vai gerar uma consulta correta e segura, o banco deve estar preparado para bloquear uma operação quando o usuário não tiver autorização para realizá-la.
+
+**1. Princípio do menor privilégio.**
+O princípio do menor privilégio é relativamente simples: cada usuário deve ter acesso somente ao que realmente precisa para realizar o seu trabalho.
+
+Mesmo que várias pessoas utilizem o mesmo banco de dados, isso não significa que todas precisam enxergar as mesmas informações. Um funcionário do caixa, por exemplo, pode precisar registrar uma venda e consultar o preço de um produto, mas provavelmente não precisa ter acesso ao CPF ou ao endereço dos clientes para fazer isso. Não significa que a empresa desconfia daquele funcionário, apenas que essas informações não são necessárias para a função dele.
+
+No PostgreSQL, isso pode ser feito retirando permissões e depois liberando apenas aquilo que cada usuário realmente precisa, usando comandos como `REVOKE ALL` e `GRANT SELECT`.
+
+Isso é especialmente importante quando existe uso de IA, porque a segurança não fica dependendo da consulta que ela criou. Se um usuário possui somente permissão de leitura e a IA sugerir um `UPDATE`, por exemplo, o banco não deve permitir a alteração. Da mesma forma, se o usuário tentar acessar uma tabela com dados pessoais para a qual não possui autorização, a consulta será bloqueada. O mesmo vale para comandos que alteram permissões: se apenas o DBA pode concedê-las, uma sugestão da IA nesse sentido não será executada.
+
+**2. Uso de views para limitar colunas e linhas.**
+Uma view pode ser entendida como uma espécie de janela para uma tabela. Em vez de entregar acesso à tabela completa, é possível criar uma view mostrando somente as informações que determinado usuário realmente precisa.
+
+Esse recorte pode acontecer tanto nas colunas quanto nas linhas. Dados como CPF, telefone e endereço podem simplesmente não aparecer na view. Também é possível mostrar apenas determinados registros. Uma condição como `WHERE ativo = TRUE`, por exemplo, permite mostrar somente os registros que estão ativos.
+
+No PostgreSQL, a view é criada a partir de uma consulta `SELECT` e recebe um nome. Assim, o usuário pode trabalhar com aquela visão limitada dos dados sem necessariamente ter acesso direto à tabela original.
+
+Isso também ajuda bastante quando existe IA envolvida. Se o usuário trabalha somente com uma view que não possui CPF, por exemplo, uma consulta ampla feita sobre essa view continuará sem retornar o CPF, porque essa informação não está disponível naquele acesso.
+
+Essa medida também pode diminuir o risco de vazamento por prompts. Se o usuário trabalha com informações que já foram limitadas anteriormente, existe uma chance menor de ele acabar copiando dados pessoais desnecessários e enviando para uma ferramenta externa.
+
+**3. Roles customizadas por perfil.**
+Em vez de configurar as permissões de cada funcionário uma por uma, é possível criar roles de acordo com as funções existentes dentro da empresa. Por exemplo: uma role para caixa, outra para analista e outra para gestor.
+
+Cada pessoa continua utilizando seu próprio login, mas recebe as permissões relacionadas à função que exerce. No PostgreSQL, uma role desse tipo pode ser criada como `NOLOGIN`. Isso significa que ninguém entra diretamente no banco usando aquela role. Ela funciona como um conjunto de permissões que depois é associado aos usuários.
+
+Isso também diminui a possibilidade de erro do próprio DBA. Imagine uma empresa com dezenas ou centenas de usuários. Se cada um tiver suas permissões configuradas manualmente, aumenta a chance de alguém receber um acesso que não deveria ter por engano.
+
+Com as roles, a configuração fica mais organizada. Se alguma regra mudar, o DBA pode alterar a role e aplicar a mudança aos usuários ligados a ela. Se uma pessoa mudar de função ou sair da empresa, também fica mais fácil remover aquele acesso.
+
+Como cada funcionário continua usando seu login individual, ainda é possível identificar nos registros quem realizou determinada operação. No caso do uso de IA, isso também ajuda a evitar que uma consulta aproveite alguma permissão que ficou liberada por engano.
+
+**4. Controle de tempo de execução e concorrência.**
+Nem todo problema está relacionado a acessar informações que não deveria. Uma consulta pode ser completamente autorizada e, mesmo assim, causar problemas por ser pesada demais.
+
+Imagine uma consulta criada por IA que fique vários minutos lendo tabelas muito grandes. Durante esse período, ela pode consumir processamento, memória e acesso ao disco, enquanto outras operações do sistema também precisam utilizar o banco.
+
+No PostgreSQL, uma forma de reduzir esse problema é utilizar o `statement_timeout`. Com ele, pode ser definido um limite para o tempo de execução de uma consulta. Se o limite for de 30 segundos, por exemplo, uma consulta que ultrapassar esse tempo será cancelada automaticamente.
+
+Também é possível controlar a quantidade de conexões utilizadas por determinados usuários ou perfis. Isso ajuda a evitar uma situação em que vários analistas executem relatórios pesados ao mesmo tempo e ocupem recursos que também são necessários para operações importantes da empresa.
+
+Essa proteção está ligada principalmente à disponibilidade. Em uma loja, por exemplo, uma consulta muito pesada não deveria conseguir prejudicar o funcionamento do caixa enquanto existem clientes esperando para serem atendidos.
+
+**5. Auditoria e rastreamento de operações.**
+Mesmo com várias proteções, ainda é importante saber o que aconteceu dentro do banco. É aí que entra a auditoria.
+
+A ideia é manter registros das operações realizadas, permitindo identificar informações como usuário, comando executado e horário. Diferentemente das medidas anteriores, a auditoria não necessariamente impede que alguma coisa aconteça. Ela serve principalmente para investigar o que aconteceu depois.
+
+No PostgreSQL, recursos de registro podem ajudar nesse acompanhamento. O `log_statement`, por exemplo, pode registrar comandos executados, enquanto a extensão `pg_stat_statements` permite acompanhar estatísticas das consultas, ajudando a identificar aquelas que são executadas com muita frequência ou que possuem maior custo.
+
+Com essas informações, o DBA consegue investigar consultas que estão prejudicando o desempenho, perceber comportamentos fora do normal e entender melhor como o banco está sendo utilizado. Em caso de incidente envolvendo dados pessoais, os registros também podem ajudar na investigação do que ocorreu.
+
+Porém, existe uma limitação importante. O banco só consegue registrar aquilo que acontece dentro dele. Se um usuário autorizado fizer uma consulta normal, copiar o resultado e depois colocar essas informações em uma ferramenta de IA externa, o banco não consegue enxergar essa segunda ação. Para ele, ocorreu apenas uma consulta autorizada. Por isso, o vazamento por prompts continua sendo um problema que não pode ser resolvido somente com configurações do PostgreSQL.
+
+**6. Conformidade com a LGPD desde o desenho.**
+A LGPD também precisa ser considerada desde o momento em que o banco de dados está sendo planejado. Diferentemente das outras medidas, isso não significa executar um único comando específico. É uma ideia que deve orientar várias decisões de segurança.
+
+Se determinado funcionário não precisa visualizar o CPF de um cliente para realizar sua função, por exemplo, o ideal é que essa informação nem chegue até ele. Quando o DBA cria uma view sem determinados dados pessoais ou limita permissões de acordo com a necessidade de cada usuário, essa preocupação já está sendo colocada em prática.
+
+Uma abordagem menos segura seria liberar um acesso muito amplo e simplesmente orientar os funcionários a não consultarem determinadas informações. O problema é que, mesmo com a orientação, os dados continuam disponíveis. Se alguém cometer um erro ou fizer uma consulta inadequada, essas informações ainda podem aparecer.
+
+Por isso, considerar a LGPD desde o desenho do banco transforma uma obrigação que poderia parecer apenas jurídica em uma preocupação também técnica. Views, roles e permissões podem ser planejadas levando em consideração quais informações cada usuário realmente precisa acessar.
+
+Quando observamos todas essas medidas juntas, fica mais fácil perceber por que é importante trabalhar com várias camadas de segurança. O menor privilégio e as views ajudam a controlar quais informações podem ser acessadas. As roles facilitam a organização dessas permissões e diminuem a chance de erros de configuração. O controle de execução ajuda a manter o sistema disponível, enquanto a auditoria permite investigar o que aconteceu quando alguma coisa foge do esperado. A preocupação com a LGPD ajuda a orientar todas essas decisões.
+
+Mesmo assim, ainda existe uma limitação: o banco não consegue controlar totalmente aquilo que o usuário faz com uma informação depois que recebeu acesso legítimo a ela. Se alguém copiar um resultado e enviar para uma IA externa, por exemplo, as configurações do PostgreSQL não conseguem impedir isso sozinhas.
+
+Por esse motivo, a distribuição segura dos dados não depende apenas das configurações técnicas. Também é necessário acompanhar como esses recursos estão sendo utilizados e orientar os usuários sobre os riscos. Nesse ponto, o papel do DBA continua sendo importante, como será abordado na próxima seção.
+
 
 ### 1.5 Atuação do DBA no cenário de IA
 Monitoramento, políticas de acesso, auditoria, orientação aos usuários,
