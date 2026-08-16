@@ -99,7 +99,6 @@ Por esse motivo, não existe uma única configuração capaz de resolver todos e
 
 
 ### 1.4 Distribuição segura de dados
-### 1.4 Distribuição segura de dados
 
 Depois de entender os principais riscos do uso de IA com bancos de dados, o próximo passo é pensar em formas de diminuir esses problemas. O próprio banco oferece vários recursos de segurança que podem ser usados para isso. A ideia do grupo é trabalhar com essas medidas em conjunto, como diferentes camadas de proteção. Nenhuma delas resolve todos os problemas sozinha, mas uma pode proteger justamente onde a outra não consegue.
 
