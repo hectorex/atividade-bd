@@ -174,8 +174,66 @@ Por esse motivo, a distribuição segura dos dados não depende apenas das confi
 
 
 ### 1.5 Atuação do DBA no cenário de IA
-Monitoramento, políticas de acesso, auditoria, orientação aos usuários,
-performance e backups.
+
+As medidas apresentadas anteriormente não funcionam sozinhas. Alguém precisa criar as views, organizar as permissões, definir as roles, configurar os limites das consultas e acompanhar o que está acontecendo no banco. Esse trabalho faz parte das responsabilidades do DBA.
+
+A IA não elimina as funções que o DBA já tinha. O que acontece é que algumas delas passam a exigir mais atenção, principalmente porque os usuários agora conseguem gerar consultas com ajuda de IA e acabam dependendo menos de consultas prontas feitas pelos desenvolvedores.
+
+**1. Definição e manutenção do esquema.**
+Organizar a estrutura do banco sempre foi uma tarefa importante, mas com o uso de IA isso ganha ainda mais importância. Agora não são somente pessoas que precisam entender os nomes das tabelas, colunas e relacionamentos. A própria IA utiliza essas informações para tentar entender como o banco funciona e montar as consultas.
+
+Se uma tabela possui nomes confusos ou não existe uma documentação explicando os relacionamentos, a IA pode interpretar a estrutura de forma errada. Ela pode, por exemplo, escolher uma coluna incorreta para relacionar duas tabelas em um `JOIN`. Mesmo que o usuário explique corretamente o resultado que deseja, a ferramenta não conhece todas as regras internas da empresa e pode acabar fazendo uma interpretação diferente.
+
+Por isso, é importante que o DBA mantenha uma estrutura organizada, com nomes claros e relacionamentos bem definidos. A documentação também ajuda a explicar para que serve cada tabela e como elas se relacionam. Quanto mais clara for essa estrutura, menor será a chance de a IA precisar "adivinhar" como os dados devem ser relacionados.
+
+**2. Redesenho das políticas de acesso.**
+Em muitos sistemas tradicionais, o usuário nem chega perto do banco de dados diretamente. Ele utiliza as telas do sistema e as consultas já foram programadas anteriormente pelo desenvolvedor. Nesse cenário, boa parte do controle também pode acontecer dentro da própria aplicação.
+
+Quando o usuário começa a criar consultas com ajuda de IA e executá-las diretamente, essa situação muda. A aplicação deixa de ser a única barreira entre o usuário e os dados. Por isso, as regras de segurança também precisam existir dentro do próprio banco.
+
+O DBA pode, por exemplo, permitir que determinados usuários consultem apenas views em vez das tabelas originais, criar roles de acordo com as funções existentes na empresa e avaliar com cuidado quem realmente precisa de permissão para alterar informações.
+
+Esse controle também precisa ser revisado com o tempo. Um funcionário pode mudar de setor, assumir outra função ou sair da empresa. Se as permissões antigas nunca forem verificadas, a pessoa pode continuar com acessos que já não fazem sentido para o trabalho atual.
+
+**3. Monitoramento das consultas geradas por IA.**
+Outra responsabilidade importante é acompanhar as consultas que estão sendo executadas. Uma das situações que o DBA pode procurar são consultas que estão consumindo recursos demais do banco.
+
+No PostgreSQL, a extensão `pg_stat_statements` ajuda nesse acompanhamento, mostrando estatísticas sobre as consultas executadas. Com essas informações, o DBA pode encontrar operações que estão sendo executadas muitas vezes ou que estão consumindo muitos recursos.
+
+A partir daí, ele consegue investigar o motivo. Talvez seja necessário criar um índice, melhorar alguma consulta, ajustar limites ou até mostrar ao usuário uma maneira mais eficiente de conseguir o mesmo resultado.
+
+Também é importante observar comportamentos fora do normal. Um usuário extraindo uma quantidade muito maior de dados do que costuma utilizar, por exemplo, pode ser algo que merece atenção. O mesmo vale para tentativas frequentes de acessar informações que aquele perfil não deveria utilizar.
+
+As configurações automáticas ajudam, mas não resolvem tudo. O `statement_timeout`, por exemplo, consegue cancelar uma consulta que está demorando demais, mas ele não explica por que aquela consulta ficou pesada. O DBA ainda precisa analisar o problema para descobrir a causa e evitar que ele continue acontecendo.
+
+**4. Orientação sobre o uso responsável da IA.**
+Nem todos os problemas podem ser resolvidos com uma configuração no banco. Por isso, orientar as pessoas que utilizam IA também passa a ser importante.
+
+O vazamento de informações por prompts é um bom exemplo. Se um funcionário consulta uma informação normalmente e depois copia o resultado para uma ferramenta externa de IA, o banco não consegue controlar o que aconteceu depois. Para ele, houve apenas uma consulta feita por um usuário autorizado.
+
+A ideia não precisa ser simplesmente proibir a utilização de IA. Essas ferramentas podem trazer ganho de produtividade quando são usadas corretamente. O mais importante é estabelecer regras claras sobre quais informações podem ser colocadas em ferramentas externas e quais dados devem permanecer dentro da empresa.
+
+Treinamentos também são importantes porque muitas vezes o funcionário não percebe que está criando um risco. Ele pode copiar parte de um relatório para uma IA apenas porque quer terminar uma tarefa mais rápido, sem perceber que naquele conteúdo existem informações internas ou dados pessoais.
+
+Também é importante explicar por que determinadas restrições existem. Quando o usuário entende por que não possui acesso a uma informação, fica mais claro que aquela limitação faz parte da segurança da empresa. Caso contrário, ele pode enxergar apenas uma mensagem de "permissão negada" e perguntar para uma IA como contornar aquilo, sem perceber o risco que está criando.
+
+**5. Backups, índices e performance.**
+Mesmo com várias medidas de segurança, erros ainda podem acontecer. É por isso que o backup continua sendo uma das responsabilidades mais importantes do DBA.
+
+Se um usuário possui permissão para alterar dados e executa por engano um `DELETE` sem `WHERE`, por exemplo, várias informações podem ser apagadas. Dependendo da situação, recuperar um backup pode ser a única forma de restaurar aquilo que foi perdido.
+
+Porém, não basta simplesmente ter arquivos de backup guardados. É necessário testar de tempos em tempos se eles realmente podem ser restaurados. Descobrir que um backup está incompleto ou corrompido somente depois de perder os dados pode transformar um problema em algo muito maior.
+
+Os índices também precisam de atenção. Em um sistema no qual as consultas são criadas apenas pela aplicação, normalmente existe um padrão mais previsível de acesso aos dados. Com usuários criando suas próprias consultas por meio de IA, esse comportamento pode variar bastante.
+
+Por isso, em vez de tentar prever todas as consultas possíveis, o DBA pode acompanhar o uso real do banco e identificar onde os índices realmente fazem diferença. Ferramentas de monitoramento ajudam justamente a descobrir quais consultas estão sendo executadas com frequência e quais estão causando maior impacto.
+
+A performance também passa a exigir um acompanhamento constante. Se vários usuários começam a gerar seus próprios relatórios e consultas, a quantidade de operações pode aumentar bastante. O DBA precisa acompanhar esse crescimento para evitar que essas consultas prejudiquem os sistemas mais importantes da empresa.
+
+Essas cinco áreas mostram que a chegada da IA não diminui a importância do DBA. A IA consegue ajudar uma pessoa a escrever uma consulta em poucos segundos, mas ela não conhece sozinha todas as regras da empresa, não decide quem deveria acessar cada informação e também não acompanha todo o funcionamento do banco.
+
+O DBA continua sendo responsável por organizar a estrutura, definir e revisar os acessos, acompanhar as consultas, cuidar dos backups e orientar os usuários sobre práticas seguras. Na prática, a IA facilita a criação das consultas, mas a segurança e o funcionamento correto do banco ainda dependem de um profissional que entenda o ambiente e saiba avaliar os riscos.
+
 
 ### 1.6 Análise crítica: qual a melhor abordagem?
 
