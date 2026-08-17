@@ -35,10 +35,6 @@ Os usuários de banco de dados são divididos em quatro perfis principais:
   * *Vantagens:* Criam telas e rotinas automatizadas, tratando os dados com segurança no código da aplicação antes de chegar ao banco.
   * *Limitações:* Qualquer mudança na regra de negócio ou novo relatório exige tempo de desenvolvimento e alteração no código do sistema.
 
-* **Usuários navegantes:** São os funcionários que usam os sistemas prontos no dia a dia.
-  * *Vantagens:* Não precisam saber nada de SQL ou TI. Interagem com telas simples e intuitivas, com risco quase zero de danificar a estrutura do banco.
-  * *Limitações:* Ficam totalmente presos às funções pré-programadas do sistema. Se precisarem de um dado diferente, dependem da TI.
-
 * **Usuários sofisticados:** São analistas, cientistas de dados ou gestores que possuem conhecimento intermediário/avançado de SQL e ferramentas de análise.
   * *Vantagens:* Conseguem extrair dados complexos e montar relatórios sem depender da equipe de desenvolvimento.
   * *Limitações:* Podem montar consultas ineficientes se não conhecerem os índices e a estrutura física do banco.
@@ -46,6 +42,14 @@ Os usuários de banco de dados são divididos em quatro perfis principais:
 * **Usuários especialistas:** São profissionais focados estritamente na regra de negócio. 
   * *Vantagens:* Têm domínio profundo dos dados e dos problemas da empresa, sabendo exatamente qual resposta precisam obter.
   * *Limitações:* Historicamente não dominam a linguagem SQL nem as boas práticas de banco de dados.
+
+* **Usuários navegantes:** São os funcionários que usam os sistemas prontos no dia a dia.
+  * *Vantagens:* Não precisam saber nada de SQL ou TI. Interagem com telas simples e intuitivas, com risco quase zero de danificar a estrutura do banco.
+  * *Limitações:* Ficam totalmente presos às funções pré-programadas do sistema. Se precisarem de um dado diferente, dependem da TI.
+
+> **Observação sobre o conceito.** Na literatura clássica (Silberschatz; Elmasri) e no próprio material de apoio, o *usuário especialista* é descrito como aquele que cria **aplicações especializadas** e sistemas não convencionais de processamento de dados (ex.: CAD, sistemas especialistas), a partir de requisitos específicos de negócio. O enunciado deste trabalho, porém, o posiciona como o profissional de forte domínio de negócio que passa a **acessar o banco diretamente com auxílio de IA**. Adotamos essa leitura do enunciado por ser a que caracteriza o cenário analisado, sem contradizer a definição clássica: em ambos os casos, trata-se de um usuário orientado à regra de negócio que opera fora do fluxo tradicional das aplicações prontas.
+
+**Por que o usuário especialista é o foco deste cenário?** Justamente pela combinação entre alto domínio de negócio e baixo domínio técnico de SQL. É o perfil que mais tende a usar a IA como "ponte" para gerar consultas que antes dependiam de um programador: sabe exatamente qual resposta quer, mas não tem, historicamente, o conhecimento de banco para avaliar se o SQL gerado é seguro, eficiente ou correto. Diferentemente do usuário navegante (preso a telas prontas e sem contato direto com o SQL) e do programador (que trata os dados no código antes de chegarem ao banco), o especialista passa a **executar comandos diretamente no banco, sem a mediação da aplicação**. É por isso que ele concentra os riscos analisados a seguir — a barreira que antes existia no código deixa de estar no caminho.
 
 ### 1.3 Riscos do uso de IA por usuários especialistas
 Usar IA generativa pode ajudar bastante um profissional no dia a dia, mas isso não elimina a necessidade de entender banco de dados. A IA pode gerar consultas, explicar erros e até sugerir soluções, porém ela também pode interpretar alguma coisa de forma errada. Se a pessoa não tiver conhecimento suficiente para perceber isso, pode acabar executando um comando sem entender direito o que ele vai fazer. A partir disso, o grupo identificou cinco riscos principais que podem afetar a segurança e os dados de uma empresa.
@@ -241,7 +245,7 @@ A posição do grupo é que **não existe uma medida única suficiente**: a melh
 
 O raciocínio central é o seguinte: no cenário tradicional, a segurança podia se apoiar na aplicação, porque era o programador quem escrevia o SQL. Com a IA generativa, o **usuário especialista passa a gerar SQL diretamente**, sem mediação. Isso significa que o grupo **não tem controle sobre o prompt** que o usuário escreve nem sobre o que a IA devolve. Confiar na "boa consulta" da IA seria transferir a segurança para um componente que erra, alucina e pode expor dados. Por isso, o controle precisa estar **na camada dos dados**, onde é o PostgreSQL que decide o que cada usuário pode ver e executar, independentemente do que o prompt pediu.
 
-A partir dessa premissa, o grupo defende a combinação das seguintes camadas, em ordem de importância:
+A partir dessa premissa, o grupo defende a combinação das seguintes camadas, em ordem de atuação (da base para o topo):
 
 1. **Menor privilégio como fundação.** Cada usuário nasce sem acesso e recebe apenas o mínimo necessário. A IA pode gerar `SELECT * FROM clientes`, mas se a role não tem permissão na tabela base, a consulta simplesmente falha.
 2. **Views como interface obrigatória.** Os usuários e a IA nunca tocam nas tabelas reais; só enxergam views que já removem colunas com dados pessoais (CPF, endereço) e filtram linhas. Assim, mesmo uma consulta "perfeita" da IA não consegue devolver o que não está na view. Para filtro de **linhas** mais robusto — por exemplo, cada analista só enxergar clientes da sua própria região — o PostgreSQL ainda oferece o **Row Level Security (RLS)** como complemento às views.
@@ -287,7 +291,7 @@ FROM clientes
 WHERE ativo = TRUE;
 ```
 
-> **Por que a view funciona mesmo sem acesso à tabela base?** No PostgreSQL, uma view é executada com os privilégios do **dono da view** (mecanismo conhecido como *ownership chaining*), e não com os do usuário que a consulta. Por isso é possível liberar a view para o analista e, ao mesmo tempo, manter a tabela `clientes` totalmente inacessível para ele. Em views usadas como barreira de segurança, recomenda-se ainda declará-las com `WITH (security_barrier)`, para impedir que funções injetadas no `WHERE` "vazem" linhas que deveriam ter sido filtradas.
+> **Por que a view funciona mesmo sem acesso à tabela base?** No PostgreSQL, por padrão uma view é executada com os privilégios do seu **dono (owner)**, e não com os do usuário que a consulta. Por isso é possível liberar a view para o analista e, ao mesmo tempo, manter a tabela `clientes` totalmente inacessível para ele. (A partir do PostgreSQL 15 esse comportamento pode ser invertido com a opção `security_invoker`, fazendo a view rodar com os privilégios de quem a consulta.) Em views usadas como barreira de segurança, recomenda-se ainda declará-las com `WITH (security_barrier)`, para impedir que funções injetadas no `WHERE` "vazem" linhas que deveriam ter sido filtradas.
 
 ### 2.2 Exemplo de role e permissão
 
@@ -297,9 +301,11 @@ Aqui aplicamos o menor privilégio: cria-se uma role de grupo por perfil, conced
 -- 1. Role de grupo para o perfil "analista que usa IA" (sem login próprio)
 CREATE ROLE analista_ia NOLOGIN;
 
--- 2. Somente leitura, e apenas na view — a tabela real permanece inacessível
+-- 2. Fecha o acesso à tabela real (inclusive o herdado por PUBLIC)
+--    e libera SOMENTE a view para o perfil
+REVOKE ALL ON clientes FROM PUBLIC;              -- remove acesso padrão herdado
+REVOKE ALL ON clientes FROM analista_ia;         -- garante que o perfil não toca na tabela base
 GRANT SELECT ON clientes_visiveis TO analista_ia;
-REVOKE ALL ON clientes FROM analista_ia;
 
 -- 3. Controle de execução: consultas pesadas são abortadas após 30s
 ALTER ROLE analista_ia SET statement_timeout = '30s';
@@ -332,7 +338,7 @@ Considere a empresa do contexto, que usa PostgreSQL para **clientes, vendas e op
 
 - ELMASRI, R.; NAVATHE, S. B. **Sistemas de Banco de Dados**. 7. ed. São Paulo: Pearson, 2018.
 
-- POSTGRESQL GLOBAL DEVELOPMENT GROUP. **PostgreSQL Documentation** — seções *CREATE ROLE*, *GRANT*, *CREATE VIEW* (incluindo `security_barrier`) e *Row Security Policies* (RLS). Disponível em: https://www.postgresql.org/docs/. Acesso em: ago. 2026.
+- POSTGRESQL GLOBAL DEVELOPMENT GROUP. **PostgreSQL Documentation** — seções *CREATE ROLE*, *GRANT*, *CREATE VIEW* (incluindo `security_barrier` e `security_invoker`) e *Row Security Policies* (RLS). Disponível em: https://www.postgresql.org/docs/. Acesso em: ago. 2026.
 
 - BRASIL. **Lei nº 13.709, de 14 de agosto de 2018** — Lei Geral de Proteção de Dados Pessoais (LGPD), com destaque ao Art. 5º, I (dados pessoais, categoria que abrange CPF, e-mail e endereço) e ao Art. 5º, II (dados pessoais sensíveis).
 
